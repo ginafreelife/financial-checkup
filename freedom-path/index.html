@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自由路徑表｜Gina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAFAF8;
+    --ink:#403011;
+    --ink-soft:#7A6E58;
+    --blue-sage:#6F8BAA;
+    --sage:#626C3B;
+    --caramel:#CC914D;
+    --gold:#E8AF3B;
+    --tan:#F0EBE0;
+    --tan-line:#E2D9C8;
+    --white:#FFFFFF;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Noto Sans TC', sans-serif;
+    font-weight:300;
+    line-height:1.9;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* ===== 背景視覺：柔光暈 + 細網格 + 抽象座標路徑 ===== */
+  .bg-art{
+    position:fixed;
+    inset:0;
+    z-index:-1;
+    overflow:hidden;
+    background:var(--bg);
+  }
+  .bg-art .glow{
+    position:absolute;
+    border-radius:50%;
+    filter:blur(80px);
+    opacity:.5;
+  }
+  .bg-art .glow-1{
+    width:60vw; height:60vw;
+    top:-20vw; left:-15vw;
+    background:radial-gradient(circle, rgba(204,145,77,.16), transparent 70%);
+  }
+  .bg-art .glow-2{
+    width:55vw; height:55vw;
+    bottom:-22vw; right:-18vw;
+    background:radial-gradient(circle, rgba(111,139,170,.14), transparent 70%);
+  }
+  .bg-art .glow-3{
+    width:40vw; height:40vw;
+    top:35vh; right:10vw;
+    background:radial-gradient(circle, rgba(232,175,59,.10), transparent 70%);
+  }
+  .bg-art svg{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+  }
+  .bg-art .grid-line{
+    stroke:#403011;
+    stroke-opacity:.035;
+    stroke-width:1;
+  }
+  .bg-art .coord-dot{
+    fill:#CC914D;
+    opacity:.22;
+  }
+  .bg-art .coord-dot.alt{
+    fill:#6F8BAA;
+    opacity:.18;
+  }
+  .bg-art .path-line{
+    stroke:#CC914D;
+    stroke-opacity:.16;
+    stroke-width:1.2;
+    stroke-dasharray:3 7;
+    fill:none;
+  }
+
+  .stage{
+    min-height:100vh;
+    width:100%;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:8vh 6vw 4vh;
+  }
+  .stage.active{
+    display:flex;
+    animation:fadeUp .7s ease both;
+  }
+  @keyframes fadeUp{
+    from{opacity:0; transform:translateY(14px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .panel{
+    width:100%;
+    max-width:600px;
+    margin:0 auto;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+  .eyebrow{
+    font-size:13px;
+    letter-spacing:.18em;
+    color:var(--blue-sage);
+    font-weight:500;
+    margin-bottom:18px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .eyebrow::before{
+    content:'';
+    display:inline-block;
+    width:22px;
+    height:1px;
+    background:var(--blue-sage);
+  }
+  h1,h2{
+    font-family:'Noto Sans TC', sans-serif;
+    font-weight:600;
+    line-height:1.5;
+    color:var(--ink);
+  }
+  h1{font-size:clamp(26px,4.2vw,38px);}
+  h2{font-size:clamp(21px,3.2vw,28px);}
+  p{color:var(--ink-soft); font-size:16px;}
+  .lede{font-size:16.5px; margin-top:18px; max-width:48ch;}
+
+  /* ---- Intro ---- */
+  #stage-intro .panel{text-align:left;}
+  .signature-mark{
+    font-family:'Noto Sans TC', sans-serif;
+    font-style:italic;
+    font-size:15px;
+    color:var(--caramel);
+    margin-bottom:30px;
+    letter-spacing:.04em;
+  }
+  .intro-title{margin-bottom:6px;}
+  .intro-sub{
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:clamp(15px,2vw,18px);
+    color:var(--ink-soft);
+    margin-bottom:10px;
+  }
+  .privacy-note{
+    margin-top:26px;
+    padding:16px 20px;
+    background:rgba(98,108,59,.06);
+    border-left:3px solid var(--sage);
+    border-radius:3px;
+    font-size:13.5px;
+    color:var(--ink-soft);
+    line-height:1.8;
+  }
+  .privacy-note b{color:var(--ink); font-weight:500;}
+
+  /* ---- buttons ---- */
+  .btn{
+    appearance:none;
+    border:none;
+    cursor:pointer;
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:15px;
+    letter-spacing:.04em;
+    padding:15px 34px;
+    border-radius:3px;
+    transition:transform .25s ease, box-shadow .25s ease, background .25s ease;
+  }
+  .btn-primary{
+    background:var(--ink);
+    color:var(--white);
+    margin-top:38px;
+  }
+  .btn-primary:hover{
+    background:var(--caramel);
+    transform:translateY(-2px);
+    box-shadow:0 10px 24px rgba(204,145,77,.3);
+  }
+  .btn-ghost{
+    background:transparent;
+    color:var(--ink-soft);
+    border:1px solid var(--tan-line);
+    margin-right:14px;
+  }
+  .btn-ghost:hover{
+    border-color:var(--blue-sage);
+    color:var(--ink);
+  }
+  .btn:disabled{opacity:.35; cursor:not-allowed; transform:none; box-shadow:none;}
+  .btn-row{display:flex; align-items:center; margin-top:40px; flex-wrap:wrap; gap:14px 0;}
+
+  /* ---- progress dots ---- */
+  .progress{display:flex; gap:8px; margin-bottom:34px;}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--tan-line); transition:background .3s ease, transform .3s ease;}
+  .dot.is-active{background:var(--caramel); transform:scale(1.3);}
+  .dot.is-done{background:var(--sage);}
+
+  .q-number{
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-bottom:10px;
+    letter-spacing:.12em;
+  }
+  textarea{
+    width:100%;
+    margin-top:24px;
+    background:rgba(255,255,255,.85);
+    backdrop-filter:blur(6px);
+    border:1px solid var(--tan-line);
+    border-radius:6px;
+    padding:18px 20px;
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:16px;
+    font-weight:300;
+    color:var(--ink);
+    resize:none;
+    min-height:120px;
+    line-height:1.8;
+    transition:border-color .25s ease, box-shadow .25s ease;
+    box-shadow:0 4px 20px rgba(64,48,17,.04);
+  }
+  textarea:focus{outline:none; border-color:var(--caramel); box-shadow:0 6px 24px rgba(204,145,77,.1);}
+  textarea::placeholder{color:#B5AB97;}
+
+  /* ---- card wrapper for form-heavy stages ---- */
+  .form-card{
+    margin-top:28px;
+    background:rgba(255,255,255,.82);
+    backdrop-filter:blur(8px);
+    border:1px solid var(--tan-line);
+    border-radius:10px;
+    padding:32px 28px;
+    box-shadow:0 12px 36px rgba(64,48,17,.06);
+  }
+
+  .field{margin-top:24px;}
+  .field:first-child{margin-top:0;}
+  .field label{
+    display:block;
+    font-size:14px;
+    color:var(--ink);
+    font-weight:500;
+    margin-bottom:9px;
+    letter-spacing:.02em;
+  }
+  .field .hint{font-size:12.5px; color:#A89C84; margin-top:7px;}
+  .input-wrap{
+    position:relative;
+    display:flex;
+    align-items:center;
+    background:var(--white);
+    border:1px solid var(--tan-line);
+    border-radius:5px;
+    transition:border-color .25s ease;
+  }
+  .input-wrap:focus-within{border-color:var(--caramel);}
+  .input-wrap .prefix{padding:0 0 0 18px; color:var(--ink-soft); font-size:15px;}
+  .input-wrap input[type=number]{
+    width:100%;
+    border:none;
+    background:transparent;
+    padding:14px 16px;
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:16px;
+    color:var(--ink);
+  }
+  .input-wrap input:focus{outline:none;}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+
+  .pills{display:flex; gap:10px; flex-wrap:wrap;}
+  .pill{
+    flex:1 1 auto;
+    text-align:center;
+    padding:13px 10px;
+    border:1px solid var(--tan-line);
+    border-radius:5px;
+    background:var(--white);
+    color:var(--ink-soft);
+    font-size:14.5px;
+    cursor:pointer;
+    transition:all .25s ease;
+  }
+  .pill.is-selected{background:var(--ink); border-color:var(--ink); color:var(--white);}
+
+  /* ---- expense grid ---- */
+  .expense-section-title{
+    font-size:14px;
+    font-weight:500;
+    color:var(--ink);
+    margin-bottom:4px;
+  }
+  .expense-section-sub{font-size:13px; color:var(--ink-soft); margin-bottom:18px;}
+  .expense-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px 14px;
+  }
+  @media (max-width:540px){
+    .expense-grid{grid-template-columns:1fr;}
+  }
+  .expense-item label{font-size:13.5px; font-weight:400; color:var(--ink-soft); margin-bottom:6px;}
+  .expense-total{
+    margin-top:26px;
+    padding:18px 20px;
+    background:rgba(232,175,59,.08);
+    border:1px solid rgba(232,175,59,.35);
+    border-radius:6px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .expense-total .label{font-size:14px; color:var(--ink-soft);}
+  .expense-total .value{
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:24px;
+    font-weight:700;
+    color:var(--gold);
+  }
+
+  .assumption-note{
+    margin-top:30px;
+    padding:14px 18px;
+    background:var(--tan);
+    border-radius:6px;
+    font-size:13px;
+    color:var(--ink-soft);
+    line-height:1.7;
+  }
+  .assumption-note b{color:var(--ink); font-weight:500;}
+
+  /* ---- result ---- */
+  #stage-result .panel{text-align:center;}
+  .result-eyebrow{font-size:14px; letter-spacing:.14em; color:var(--blue-sage); margin-bottom:22px;}
+  .result-number{
+    font-family:'Noto Sans TC', sans-serif;
+    font-weight:700;
+    font-size:clamp(38px,7.5vw,62px);
+    color:var(--caramel);
+    line-height:1.15;
+    word-break:break-word;
+  }
+  .result-number .unit{font-size:.4em; color:var(--ink); font-weight:500; margin-right:6px;}
+  .result-sentence{
+    margin:26px auto 0;
+    max-width:38ch;
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:18px;
+    color:var(--ink);
+    line-height:1.85;
+  }
+  .result-meta{margin-top:36px; display:flex; justify-content:center; gap:30px; flex-wrap:wrap;}
+  .meta-item{text-align:left;}
+  .meta-item .meta-label{font-size:12px; color:var(--ink-soft); letter-spacing:.06em;}
+  .meta-item .meta-value{font-family:'Noto Sans TC', sans-serif; font-size:18px; color:var(--ink); margin-top:4px;}
+  .result-divider{width:48px; height:1px; background:var(--tan-line); margin:36px auto;}
+  .result-cta{font-size:15px; color:var(--ink-soft); max-width:42ch; margin:0 auto;}
+  .result-actions{margin-top:22px;}
+
+  .saving-highlight{
+    margin-top:34px;
+    padding:26px 24px;
+    background:rgba(255,255,255,.82);
+    border:1px solid var(--tan-line);
+    border-left:3px solid var(--caramel);
+    border-radius:8px;
+    text-align:left;
+    box-shadow:0 8px 28px rgba(64,48,17,.05);
+  }
+  .saving-label{font-size:13px; color:var(--ink-soft); letter-spacing:.02em;}
+  .saving-value{font-family:'Noto Sans TC', sans-serif; font-size:24px; color:var(--ink); margin-top:8px; font-weight:600;}
+  .saving-value span{color:var(--gold);}
+  .saving-note{font-size:13px; color:var(--ink-soft); margin-top:10px; line-height:1.7;}
+
+  .low-expense-card{
+    margin-top:34px;
+    padding:30px 26px;
+    background:rgba(255,255,255,.85);
+    border:1px solid var(--tan-line);
+    border-radius:10px;
+    text-align:left;
+    box-shadow:0 10px 30px rgba(64,48,17,.05);
+  }
+  .low-expense-card p{margin-top:12px;}
+  .low-expense-card p:first-child{margin-top:0;}
+
+  .calc-summary-grid{display:flex; flex-direction:column; gap:8px;}
+  .calc-row{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--white); border-radius:5px; border:1px solid var(--tan-line);}
+  .calc-label{font-size:13.5px; color:var(--ink-soft);}
+  .calc-val{font-size:14px; color:var(--ink); font-weight:500;}
+  .calc-summary-total{
+    margin-top:10px;
+    padding:14px 16px;
+    background:rgba(232,175,59,.1);
+    border:1px solid rgba(232,175,59,.35);
+    border-radius:5px;
+    display:flex;
+    justify-content:space-between;
+    font-size:15px;
+    color:var(--ink);
+  }
+
+  .echo-block{text-align:left;}
+  .echo-title{
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:15px;
+    color:var(--blue-sage);
+    letter-spacing:.06em;
+    margin-bottom:22px;
+    text-align:center;
+  }
+  .echo-item{margin-bottom:22px;}
+  .echo-item:last-child{margin-bottom:0;}
+  .echo-q{font-size:13px; color:var(--ink-soft); line-height:1.7;}
+  .echo-a{
+    margin-top:8px;
+    padding:14px 16px;
+    background:var(--tan);
+    border-radius:6px;
+    font-size:15px;
+    color:var(--ink);
+    line-height:1.8;
+    white-space:pre-wrap;
+  }
+
+  .ig-link{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-top:20px;
+    padding:14px 28px;
+    background:var(--ink);
+    color:var(--white);
+    text-decoration:none;
+    border-radius:4px;
+    font-size:14.5px;
+    letter-spacing:.02em;
+    transition:background .25s ease, transform .25s ease;
+  }
+  .ig-link:hover{background:var(--caramel); transform:translateY(-2px);}
+  .ig-icon{font-size:14px;}
+
+  .screenshot-note{
+    margin-top:18px;
+    font-size:13px;
+    color:var(--ink-soft);
+    max-width:42ch;
+    margin-left:auto;
+    margin-right:auto;
+  }
+
+  /* ---- page footer, every stage ---- */
+  .page-footer{
+    width:100%;
+    max-width:600px;
+    margin:48px auto 0;
+    padding-top:22px;
+    border-top:1px solid var(--tan-line);
+    text-align:center;
+  }
+  .page-footer .footer-text{font-size:12.5px; color:var(--ink-soft);}
+  .page-footer a{
+    color:var(--caramel);
+    text-decoration:none;
+    font-weight:500;
+  }
+  .page-footer a:hover{text-decoration:underline;}
+
+  @media (max-width:540px){
+    .stage{padding:9vh 6vw 4vh;}
+    .form-card{padding:24px 18px;}
+    .result-meta{gap:20px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 背景視覺層 ============ -->
+<div class="bg-art" aria-hidden="true">
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+  <div class="glow glow-3"></div>
+  <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <!-- 低對比細網格 -->
+    <g class="grid-line">
+      <line x1="0" y1="100" x2="1000" y2="100"/>
+      <line x1="0" y1="220" x2="1000" y2="220"/>
+      <line x1="0" y1="340" x2="1000" y2="340"/>
+      <line x1="0" y1="460" x2="1000" y2="460"/>
+      <line x1="0" y1="580" x2="1000" y2="580"/>
+      <line x1="0" y1="700" x2="1000" y2="700"/>
+      <line x1="0" y1="820" x2="1000" y2="820"/>
+      <line x1="0" y1="940" x2="1000" y2="940"/>
+      <line x1="100" y1="0" x2="100" y2="1000"/>
+      <line x1="240" y1="0" x2="240" y2="1000"/>
+      <line x1="380" y1="0" x2="380" y2="1000"/>
+      <line x1="520" y1="0" x2="520" y2="1000"/>
+      <line x1="660" y1="0" x2="660" y2="1000"/>
+      <line x1="800" y1="0" x2="800" y2="1000"/>
+      <line x1="940" y1="0" x2="940" y2="1000"/>
+    </g>
+    <!-- 抽象人生路徑：座標點 + 虛線連結 -->
+    <path class="path-line" d="M 120,860 C 260,760 300,640 420,560 S 600,420 700,320 S 860,200 920,140"/>
+    <circle class="coord-dot" cx="120" cy="860" r="4"/>
+    <circle class="coord-dot alt" cx="300" cy="640" r="3"/>
+    <circle class="coord-dot" cx="420" cy="560" r="5"/>
+    <circle class="coord-dot alt" cx="600" cy="420" r="3"/>
+    <circle class="coord-dot" cx="700" cy="320" r="4"/>
+    <circle class="coord-dot alt" cx="860" cy="200" r="3"/>
+    <circle class="coord-dot" cx="920" cy="140" r="6"/>
+    <circle class="coord-dot alt" cx="80" cy="180" r="3"/>
+    <circle class="coord-dot" cx="940" cy="760" r="4"/>
+    <circle class="coord-dot alt" cx="540" cy="900" r="3"/>
+  </svg>
+</div>
+
+<!-- ============ STAGE 0 — INTRO ============ -->
+<section class="stage active" id="stage-intro">
+  <div class="panel">
+    <p class="signature-mark">Gina ｜自由路徑表</p>
+    <h1 class="intro-title">在你開始算數字之前，<br>先看清楚，自己真正想要的畫面。</h1>
+    <p class="intro-sub">三個問題，一個數字。</p>
+    <p class="lede">這不只是一份財務試算表。前面三題，陪你停下來，誠實面對自己的渴望；後面的計算，把那個渴望，換算成一個清楚的數字——你需要多少底氣，才能真正自由。</p>
+    <div class="privacy-note">
+      <b>這份試算不會收集、儲存任何你填寫的資訊。</b><br>
+      所有內容只存在你眼前這個畫面，離開或重新整理頁面後就會清空——這裡只是讓你更了解自己，最後停下來看一眼。<br>
+      如果想留下紀錄，<b>務必自己截圖保存</b>。
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="goTo('stage-q1')">開始填寫</button>
+    </div>
+  </div>
+  <div class="page-footer">
+    <p class="footer-text">這份工具，由 <a href="https://www.instagram.com/gina.freelife/" target="_blank" rel="noopener">@gina.freelife</a> 製作｜陪你走清楚人生與財務的路徑</p>
+  </div>
+</section>
+
+<!-- ============ STAGE 1 — Q1 ============ -->
+<section class="stage" id="stage-q1">
+  <div class="panel">
+    <div class="progress">
+      <div class="dot is-active" data-dot="1"></div>
+      <div class="dot" data-dot="2"></div>
+      <div class="dot" data-dot="3"></div>
+    </div>
+    <p class="q-number">第一題</p>
+    <h2>如果今天不用考慮存款夠不夠、爸媽怎麼想、朋友怎麼看，你會做出哪一個跟現在不一樣的決定？</h2>
+    <textarea id="q1" placeholder="慢慢想，寫下第一個浮現的念頭就好⋯⋯"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goTo('stage-intro')">上一步</button>
+      <button class="btn btn-primary" onclick="goTo('stage-q2')">下一題</button>
+    </div>
+  </div>
+  <div class="page-footer">
+    <p class="footer-text">陪你梳理這份試算的人，是 <a href="https://www.instagram.com/gina.freelife/" target="_blank" rel="noopener">@gina.freelife</a></p>
+  </div>
+</section>
+
+<!-- ============ STAGE 2 — Q2 ============ -->
+<section class="stage" id="stage-q2">
+  <div class="panel">
+    <div class="progress">
+      <div class="dot is-done" data-dot="1"></div>
+      <div class="dot is-active" data-dot="2"></div>
+      <div class="dot" data-dot="3"></div>
+    </div>
+    <p class="q-number">第二題</p>
+    <h2>你最常用什麼方式，逃避面對自己真正的渴望？為什麼？</h2>
+    <p class="lede" style="margin-top:6px;">忙碌？學習？滑手機？</p>
+    <textarea id="q2" placeholder="不用漂亮，誠實寫就好⋯⋯"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goTo('stage-q1')">上一步</button>
+      <button class="btn btn-primary" onclick="goTo('stage-q3')">下一題</button>
+    </div>
+  </div>
+  <div class="page-footer">
+    <p class="footer-text">陪你梳理這份試算的人，是 <a href="https://www.instagram.com/gina.freelife/" target="_blank" rel="noopener">@gina.freelife</a></p>
+  </div>
+</section>
+
+<!-- ============ STAGE 3 — Q3 ============ -->
+<section class="stage" id="stage-q3">
+  <div class="panel">
+    <div class="progress">
+      <div class="dot is-done" data-dot="1"></div>
+      <div class="dot is-done" data-dot="2"></div>
+      <div class="dot is-active" data-dot="3"></div>
+    </div>
+    <p class="q-number">第三題</p>
+    <h2>如果今天你已經財富、時間自由了，你會怎麼過一天？</h2>
+    <textarea id="q3" placeholder="從睜開眼睛那一刻開始，想像看看⋯⋯"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goTo('stage-q2')">上一步</button>
+      <button class="btn btn-primary" onclick="goTo('stage-calc')">進入計算</button>
+    </div>
+  </div>
+  <div class="page-footer">
+    <p class="footer-text">陪你梳理這份試算的人，是 <a href="https://www.instagram.com/gina.freelife/" target="_blank" rel="noopener">@gina.freelife</a></p>
+  </div>
+</section>
+
+<!-- ============ STAGE 4 — CALCULATOR ============ -->
+<section class="stage" id="stage-calc">
+  <div class="panel">
+    <p class="eyebrow">最後一步</p>
+    <h2>把你的畫面，換算成數字</h2>
+    <p class="lede">回答幾個簡單的問題，算出你需要多少底氣，才能真正自由。</p>
+
+    <div class="form-card">
+      <div class="field">
+        <label for="currentAge">你現在幾歲？</label>
+        <div class="input-wrap">
+          <input type="number" id="currentAge" placeholder="例如 28" min="1" max="84">
+          <span class="prefix" style="padding:0 18px 0 0;">歲</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="retireAge">你期待幾歲，可以財富 × 時間自由？</label>
+        <div class="input-wrap">
+          <input type="number" id="retireAge" placeholder="例如 45" min="18" max="84">
+          <span class="prefix" style="padding:0 18px 0 0;">歲</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <p class="expense-section-title">自由之後，你預計每個月，會花多少錢？</p>
+        <p class="expense-section-sub">想像第三題你寫下的那一天，把生活拆成幾個面向，分別填上去。</p>
+
+        <div class="expense-grid">
+          <div class="expense-item">
+            <label for="exp-housing">居住（房租／房貸／水電網路）</label>
+            <div class="input-wrap"><span class="prefix">NT$</span><input type="number" class="exp-input" id="exp-housing" min="0" placeholder="0"></div>
+          </div>
+          <div class="expense-item">
+            <label for="exp-food">飲食</label>
+            <div class="input-wrap"><span class="prefix">NT$</span><input type="number" class="exp-input" id="exp-food" min="0" placeholder="0"></div>
+          </div>
+          <div class="expense-item">
+            <label for="exp-transport">交通</label>
+            <div class="input-wrap"><span class="prefix">NT$</span><input type="number" class="exp-input" id="exp-transport" min="0" placeholder="0"></div>
+          </div>
+          <div class="expense-item">
+            <label for="exp-clothing">服飾儀容</label>
+            <div class="input-wrap"><span class="prefix">NT$</span><input type="number" class="exp-input" id="exp-clothing" min="0" placeholder="0"></div>
+          </div>
+          <div class="expense-item">
+            <label for="exp-growth">學習成長</label>
+            <div class="input-wrap"><span class="prefix">NT$</span><input type="number" class="exp-input" id="exp-growth" min="0" placeholder="0"></div>
+          </div>
+          <div class="expense-item">
+            <label for="exp-leisure">娛樂旅行</label>
+            <div class="input-wrap"><span class="prefix">NT$</span><input type="number" class="exp-input" id="exp-leisure" min="0" placeholder="0"></div>
+          </div>
+          <div class="expense-item">
+            <label for="exp-health">健康醫療</label>
+            <div class="input-wrap"><span class="prefix">NT$</span><input type="number" class="exp-input" id="exp-health" min="0" placeholder="0"></div>
+          </div>
+          <div class="expense-item">
+            <label for="exp-other">其他彈性支出</label>
+            <div class="input-wrap"><span class="prefix">NT$</span><input type="number" class="exp-input" id="exp-other" min="0" placeholder="0"></div>
+          </div>
+        </div>
+
+        <div class="expense-total">
+          <span class="label">每月總開銷</span>
+          <span class="value" id="expenseTotalDisplay">NT$ 0</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>通膨倍數（未來物價，會比現在更貴）</label>
+        <div class="pills" id="inflationPills">
+          <div class="pill" data-val="1.25">1.25 倍</div>
+          <div class="pill is-selected" data-val="1.5">1.5 倍</div>
+          <div class="pill" data-val="2">2 倍</div>
+          <div class="pill" data-val="2.5">2.5 倍</div>
+        </div>
+      </div>
+
+      <div class="assumption-note">
+        這份試算，採用<b>平均餘命 85 歲</b>作為計算基準——也就是說，我們算的是「從你自由的那一天，到 85 歲，每一年都要過上你想要的生活」需要的總額。
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goTo('stage-q3')">上一步</button>
+      <button class="btn btn-primary" onclick="calculate()">算出我的自由數字</button>
+    </div>
+  </div>
+  <div class="page-footer">
+    <p class="footer-text">陪你梳理這份試算的人，是 <a href="https://www.instagram.com/gina.freelife/" target="_blank" rel="noopener">@gina.freelife</a></p>
+  </div>
+</section>
+
+<!-- ============ STAGE 5 — RESULT ============ -->
+<section class="stage" id="stage-result">
+  <div class="panel">
+
+    <!-- 正常結果區塊 -->
+    <div id="resultNormal">
+      <p class="result-eyebrow">這是你的自由數字</p>
+      <div class="result-number"><span class="unit">NT$</span><span id="resultValue">0</span></div>
+      <p class="result-sentence" id="resultSentence"></p>
+
+      <div class="result-meta">
+        <div class="meta-item">
+          <div class="meta-label">年支出（自由後）</div>
+          <div class="meta-value" id="metaYearly">—</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">需要支撐的年數</div>
+          <div class="meta-value" id="metaYears">—</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">距離自由，還有</div>
+          <div class="meta-value" id="metaPrep">—</div>
+        </div>
+      </div>
+
+      <div class="saving-highlight">
+        <p class="saving-label">如果不靠任何投資方法，單純儲蓄</p>
+        <p class="saving-value">平均每年要存下 <span id="metaSaving">—</span></p>
+        <p class="saving-note">這不是要嚇你——這是讓你看清楚，為什麼「清楚的配置策略」比「死存錢」重要的原因。</p>
+      </div>
+    </div>
+
+    <!-- 每月開銷過低時顯示 -->
+    <div id="resultLow" style="display:none;">
+      <p class="result-eyebrow">先別急著看數字</p>
+      <h2 style="margin-top:6px;">你填寫的每月開銷，可能被低估了</h2>
+      <div class="low-expense-card">
+        <p>你目前填寫的每月生活費是 <b id="lowExpenseValue" style="color:var(--caramel);">NT$ 0</b>，這個金額，可能還沒有完整反映出雙北實際的生活樣貌。</p>
+        <p>建議你回到上一步，重新看看食衣住行育樂健康每一項，有沒有漏填、或低估的地方——讓這份試算，更貼近你真正想要的生活，而不是現在「將就」的生活。</p>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="goTo('stage-calc')">回去調整金額</button>
+      </div>
+    </div>
+
+    <div class="result-divider"></div>
+
+    <!-- 填寫數字摘要 -->
+    <div class="echo-block" id="calcSummary">
+      <p class="echo-title">你填寫的數字</p>
+      <div class="calc-summary-grid">
+        <div class="calc-row"><span class="calc-label">現在年齡</span><span class="calc-val" id="sumCurrentAge">—</span></div>
+        <div class="calc-row"><span class="calc-label">期待自由年齡</span><span class="calc-val" id="sumRetireAge">—</span></div>
+        <div class="calc-row"><span class="calc-label">通膨倍數</span><span class="calc-val" id="sumInflation">—</span></div>
+      </div>
+      <p class="echo-q" style="margin-top:20px; margin-bottom:10px;">退休後每月開銷明細</p>
+      <div class="calc-summary-grid" id="sumExpenseGrid">
+        <!-- 由 JS 填入 -->
+      </div>
+      <div class="calc-summary-total">
+        <span>每月總開銷</span><span id="sumTotal" style="font-weight:500; color:var(--caramel);">—</span>
+      </div>
+    </div>
+
+    <div class="result-divider"></div>
+
+    <div class="echo-block">
+      <p class="echo-title">回顧你寫下的畫面</p>
+      <div class="echo-item">
+        <p class="echo-q">如果今天不用考慮存款夠不夠、爸媽怎麼想、朋友怎麼看，你會做出哪一個跟現在不一樣的決定？</p>
+        <p class="echo-a" id="echoQ1">—</p>
+      </div>
+      <div class="echo-item">
+        <p class="echo-q">你最常用什麼方式，逃避面對自己真正的渴望？為什麼？</p>
+        <p class="echo-a" id="echoQ2">—</p>
+      </div>
+      <div class="echo-item">
+        <p class="echo-q">如果今天你已經財富、時間自由了，你會怎麼過一天？</p>
+        <p class="echo-a" id="echoQ3">—</p>
+      </div>
+    </div>
+
+    <div class="result-divider"></div>
+
+    <p class="result-cta">數字只是起點，不是終點。<br>這個數字會不會太遠、要怎麼一步步走到——<br>我陪你把這條路徑走清楚。</p>
+
+    <a class="ig-link" href="https://www.instagram.com/gina.freelife/" target="_blank" rel="noopener">
+      <span class="ig-icon">◎</span> 私訊我 @gina.freelife，一起聊聊你的自由路徑
+    </a>
+    <p class="screenshot-note">記得這頁不會被儲存——歡迎將這個畫面截圖，私訊分享給 Gina，我們可以從這裡開始聊起。</p>
+
+    <div class="result-actions">
+      <button class="btn btn-ghost" onclick="goTo('stage-calc')">重新計算</button>
+    </div>
+  </div>
+  <div class="page-footer">
+    <p class="footer-text">這份工具，由 <a href="https://www.instagram.com/gina.freelife/" target="_blank" rel="noopener">@gina.freelife</a> 製作｜陪你走清楚人生與財務的路徑</p>
+  </div>
+</section>
+
+<script>
+function goTo(id){
+  document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// 通膨倍數選擇
+let inflationMultiplier = 1.5;
+document.querySelectorAll('#inflationPills .pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('#inflationPills .pill').forEach(p => p.classList.remove('is-selected'));
+    pill.classList.add('is-selected');
+    inflationMultiplier = parseFloat(pill.dataset.val);
+  });
+});
+
+// 費用欄位即時加總
+const expIds = ['exp-housing','exp-food','exp-transport','exp-clothing','exp-growth','exp-leisure','exp-health','exp-other'];
+function getExpenseTotal(){
+  return expIds.reduce((sum, id) => {
+    const v = parseFloat(document.getElementById(id).value);
+    return sum + (isNaN(v) ? 0 : v);
+  }, 0);
+}
+function updateExpenseDisplay(){
+  document.getElementById('expenseTotalDisplay').textContent = 'NT$ ' + formatNT(getExpenseTotal());
+}
+expIds.forEach(id => {
+  document.getElementById(id).addEventListener('input', updateExpenseDisplay);
+});
+
+function formatNT(n){
+  return Math.round(n).toLocaleString('zh-Hant-TW');
+}
+
+const expLabels = {
+  'exp-housing':'居住','exp-food':'飲食','exp-transport':'交通','exp-clothing':'服飾儀容',
+  'exp-growth':'學習成長','exp-leisure':'娛樂旅行','exp-health':'健康醫療','exp-other':'其他彈性支出'
+};
+
+function calculate(){
+  const currentAgeEl = document.getElementById('currentAge');
+  const retireAgeEl = document.getElementById('retireAge');
+  const currentAge = parseFloat(currentAgeEl.value);
+  const retireAge = parseFloat(retireAgeEl.value);
+  const LIFE_EXPECTANCY = 85;
+
+  // 收集缺漏欄位
+  const missing = [];
+  if(!currentAgeEl.value){ missing.push('你現在幾歲'); }
+  if(!retireAgeEl.value){ missing.push('期待自由的年齡'); }
+  expIds.forEach(id => {
+    if(!document.getElementById(id).value){ missing.push(expLabels[id]); }
+  });
+
+  if(missing.length > 0){
+    alert('還有幾項還沒填寫，麻煩補上才能算出你的數字：\n\n' + missing.join('、'));
+    return;
+  }
+  if(retireAge >= LIFE_EXPECTANCY){
+    alert('期待自由的年齡，請輸入小於 85 歲的數字。');
+    return;
+  }
+  if(currentAge >= retireAge){
+    alert('現在的年齡，請輸入小於「期待自由年齡」的數字。');
+    return;
+  }
+
+  const monthlyExpense = getExpenseTotal();
+  const yearsNeeded = LIFE_EXPECTANCY - retireAge;
+  const yearsToFreedom = retireAge - currentAge;
+  const yearlyExpense = monthlyExpense * 12 * inflationMultiplier;
+  const totalNeeded = yearlyExpense * yearsNeeded;
+  const yearlySavingNeeded = totalNeeded / yearsToFreedom;
+
+  // 回顧三題
+  document.getElementById('echoQ1').textContent = document.getElementById('q1').value.trim() || '（這題你還沒寫下答案）';
+  document.getElementById('echoQ2').textContent = document.getElementById('q2').value.trim() || '（這題你還沒寫下答案）';
+  document.getElementById('echoQ3').textContent = document.getElementById('q3').value.trim() || '（這題你還沒寫下答案）';
+
+  // 數字摘要
+  document.getElementById('sumCurrentAge').textContent = currentAge + ' 歲';
+  document.getElementById('sumRetireAge').textContent = retireAge + ' 歲';
+  document.getElementById('sumInflation').textContent = inflationMultiplier + ' 倍';
+  document.getElementById('sumTotal').textContent = 'NT$ ' + formatNT(monthlyExpense);
+  const expGrid = document.getElementById('sumExpenseGrid');
+  expGrid.innerHTML = '';
+  const expLabelMap = {
+    'exp-housing':'居住','exp-food':'飲食','exp-transport':'交通','exp-clothing':'服飾儀容',
+    'exp-growth':'學習成長','exp-leisure':'娛樂旅行','exp-health':'健康醫療','exp-other':'其他彈性支出'
+  };
+  expIds.forEach(id => {
+    const v = parseFloat(document.getElementById(id).value) || 0;
+    if(v > 0){
+      const row = document.createElement('div');
+      row.className = 'calc-row';
+      row.innerHTML = `<span class="calc-label">${expLabelMap[id]}</span><span class="calc-val">NT$ ${formatNT(v)}</span>`;
+      expGrid.appendChild(row);
+    }
+  });
+
+  if(monthlyExpense < 20000){
+    document.getElementById('resultNormal').style.display = 'none';
+    document.getElementById('resultLow').style.display = 'block';
+    document.getElementById('lowExpenseValue').textContent = 'NT$ ' + formatNT(monthlyExpense);
+  } else {
+    document.getElementById('resultNormal').style.display = 'block';
+    document.getElementById('resultLow').style.display = 'none';
+
+    document.getElementById('resultValue').textContent = formatNT(totalNeeded);
+    document.getElementById('metaYearly').textContent = 'NT$ ' + formatNT(yearlyExpense);
+    document.getElementById('metaYears').textContent = yearsNeeded + ' 年';
+    document.getElementById('metaPrep').textContent = yearsToFreedom + ' 年';
+    document.getElementById('metaSaving').textContent = 'NT$ ' + formatNT(yearlySavingNeeded);
+    document.getElementById('resultSentence').textContent =
+      '從 ' + retireAge + ' 歲開始，往後每一年，都能過上你想要的生活——這就是你需要的底氣。';
+  }
+
+  goTo('stage-result');
+}
+</script>
+
+</body>
+</html>
